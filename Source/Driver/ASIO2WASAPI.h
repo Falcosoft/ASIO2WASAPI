@@ -34,7 +34,7 @@ struct IAudioRenderClient;
 #include "iasiodrv.h"
 
 extern CLSID CLSID_ASIO2WASAPI_DRIVER;
-const char * const szDescription = "ASIO2WASAPI";
+const char * const szDescription = "VST Driver - ASIO2WASAPI";
 
 
 class ASIO2WASAPI : public IASIO, public CUnknown

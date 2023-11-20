@@ -88,7 +88,7 @@ int WINAPI WinMain(HINSTANCE,HINSTANCE,LPSTR,int)
    if (IsWow64())
    {
       const char * names[]={
-         "ASIO2WASAPI64.dll",
+         "ASIO2WASAPI.dll",
       };
       if (UnregisterDLLs(installFolder64,names,sizeof(names)/sizeof(names[0])))
          return -1;

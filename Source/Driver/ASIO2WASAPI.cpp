@@ -37,7 +37,7 @@ const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
 const IID IID_IAudioClient = __uuidof(IAudioClient);
 const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
 
-const char * szPrefsRegKey = "Software\\ASIO2WASAPI";
+const char * szPrefsRegKey = "Software\\VSTi Driver\\Output Driver\\ASIO2WASAPI";
 
 #define SAFE_RELEASE(punk)  \
               if ((punk) != NULL)  \
@@ -343,7 +343,7 @@ ASIOSampleType ASIO2WASAPI::getASIOSampleType() const
             switch (m_waveFormat.Samples.wValidBitsPerSample)
             {
                 case 32: return ASIOSTInt32LSB;
-                case 24: return ASIOSTInt32LSB; //falco: In case of 24-bit data Windows simply chops the last 8 bits. No special alignment needed. ASIOSTInt32LSB24 is simply wrong. 
+                case 24: return ASIOSTInt32LSB; //falco: In case of 24-bit data Windows simply shops the last 8 bits. No special alignment needed. ASIOSTInt32LSB24 is simply wrong. 
                 default: return ASIOSTLastEntry ;
             }
         default: return ASIOSTLastEntry;
@@ -399,7 +399,7 @@ void ASIO2WASAPI::clearState()
     //fields valid before initialization
     m_nChannels = 2;
     m_nSampleRate = 48000;
-    m_nBufferSize = 20;
+    m_nBufferSize = 10;
 
     memset(m_errorMessage,0,sizeof(m_errorMessage));
     m_deviceId.clear();
@@ -604,6 +604,32 @@ BOOL CALLBACK ASIO2WASAPI::ControlPanelProc(HWND hwndDlg,
             pDriver = (ASIO2WASAPI*) lParam;
             if (!pDriver)
                 return FALSE;
+
+            HWND hwndOwner = 0;
+            RECT rcOwner, rcDlg, rc;
+
+            if ((hwndOwner = GetParent(hwndDlg)) == NULL)
+            {
+                hwndOwner = GetDesktopWindow();
+            }
+
+            GetWindowRect(hwndOwner, &rcOwner);
+            GetWindowRect(hwndDlg, &rcDlg);
+            CopyRect(&rc, &rcOwner);            
+
+            OffsetRect(&rcDlg, -rcDlg.left, -rcDlg.top);
+            OffsetRect(&rc, -rc.left, -rc.top);
+            OffsetRect(&rc, -rcDlg.right, -rcDlg.bottom);           
+
+            SetWindowPos(hwndDlg,
+                HWND_TOPMOST,
+                rcOwner.left + (rc.right / 2),
+                rcOwner.top + (rc.bottom / 2),
+                0, 0,          
+                SWP_NOSIZE);
+
+            if (GetDlgCtrlID((HWND)wParam) != IDC_DEVICE) SetFocus(GetDlgItem(hwndDlg, IDC_DEVICE));               
+       
             SetDlgItemInt(hwndDlg,IDC_CHANNELS,(UINT)pDriver->m_nChannels,TRUE);
             SetDlgItemInt(hwndDlg,IDC_SAMPLE_RATE,(UINT)pDriver->m_nSampleRate,TRUE);
             SetDlgItemInt(hwndDlg, IDC_BUFFERSIZE, (UINT)pDriver->m_nBufferSize, TRUE);
@@ -810,7 +836,7 @@ HRESULT ASIO2WASAPI::LoadData(IAudioRenderClient * pRenderClient)
 
 void ASIO2WASAPI::getDriverName (char *name)
 {
-	strcpy_s (name, 32, "ASIO2WASAPI");
+	strcpy_s (name, 32, "VST Driver - ASIO2WASAPI");
 }
 
 long ASIO2WASAPI::getDriverVersion ()
@@ -858,7 +884,7 @@ void ASIO2WASAPI::setMostReliableFormat()
 {
     m_nChannels = 2;
     m_nSampleRate = 48000;
-    m_nBufferSize = 20;
+    m_nBufferSize = 10;
 
     memset(&m_waveFormat,0,sizeof(m_waveFormat));
     WAVEFORMATEX& fmt = m_waveFormat.Format;

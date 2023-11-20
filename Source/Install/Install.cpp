@@ -141,7 +141,7 @@ int WINAPI WinMain(HINSTANCE,HINSTANCE,LPSTR,int)
 
       CreateDirectory(installFolder64.c_str(),NULL);
       const char * names[]={
-         "ASIO2WASAPI64.dll",
+         "ASIO2WASAPI.dll",
       };
       if (CopyFiles(installFolder64,names,sizeof(names)/sizeof(names[0]))!=0 ||
          RegisterDLLs(installFolder64,names,sizeof(names)/sizeof(names[0])))
