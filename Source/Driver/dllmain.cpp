@@ -22,9 +22,6 @@
 #include "COMBaseClasses.h"
 #include "ASIO2WASAPI.h"
 
-LONG UnregisterAsioDriver (CLSID clsid,const char *szDllPathName,const char *szregname);
-LONG RegisterAsioDriver (CLSID clsid,const char *szDllPathName,const char *szregname,const char *szasiodesc,const char *szthreadmodel);
-
 
 HINSTANCE hinstance;
 
@@ -133,35 +130,6 @@ STDAPI DllCanUnloadNow()
 	else {
 		return S_OK;
    }
-}
-
-
-HRESULT DllRegisterServer()
-{
-    char szDllPathName[MAX_PATH] = {0};
-    GetModuleFileName(g_hinstDLL,szDllPathName,MAX_PATH);
-    LONG	rc = RegisterAsioDriver (CLSID_ASIO2WASAPI_DRIVER,szDllPathName,szDescription,szDescription,"Apartment");
-
-	if (rc) {
-		MessageBox(NULL,(LPCTSTR)"DllRegisterServer failed!",szDescription,MB_OK);
-		return -1;
-	}
-
-	return S_OK;
-}
-
-HRESULT DllUnregisterServer()
-{
-    char szDllPathName[MAX_PATH] = {0};
-    GetModuleFileName(g_hinstDLL,szDllPathName,MAX_PATH);
-	LONG	rc = UnregisterAsioDriver (CLSID_ASIO2WASAPI_DRIVER,szDllPathName,szDescription);
-
-	if (rc) {
-		MessageBox(NULL,(LPCTSTR)"DllUnregisterServer failed!",szDescription,MB_OK);
-		return -1;
-	}
-
-	return S_OK;
 }
 
 

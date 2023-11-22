@@ -411,7 +411,7 @@ void ASIO2WASAPI::clearState()
     //fields valid before initialization
     m_nChannels = 2;
     m_nSampleRate = 48000;
-    m_nBufferSize = 15;
+    m_nBufferSize = 20;
 
     memset(m_errorMessage,0,sizeof(m_errorMessage));
     m_deviceId.clear();
@@ -479,7 +479,7 @@ BOOL CALLBACK ASIO2WASAPI::ControlPanelProc(HWND hwndDlg,
                     {
                         int nChannels = 2;
                         int nSampleRate = 48000;
-                        int nBufferSize = 15;
+                        int nBufferSize = 20;
                         //get nChannels and nSampleRate from the dialog
                         {
                             BOOL bSuccess = FALSE;
@@ -772,7 +772,7 @@ DWORD WINAPI ASIO2WASAPI::PlayThreadProc(LPVOID pThis)
     // Ask MMCSS to temporarily boost the thread priority
     // to reduce the possibility of glitches while we play.
     DWORD taskIndex = 0;
-    HANDLE hAv = AvSetMmThreadCharacteristics(TEXT("Audio"), &taskIndex);
+    HANDLE hAv = AvSetMmThreadCharacteristics(TEXT("Pro Audio"), &taskIndex);
     if (hAv) AvSetMmThreadPriority(hAv, AVRT_PRIORITY_CRITICAL);
 
     //SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
@@ -900,7 +900,7 @@ void ASIO2WASAPI::setMostReliableFormat()
 {
     m_nChannels = 2;
     m_nSampleRate = 48000;
-    m_nBufferSize = 15;
+    m_nBufferSize = 20;
 
     memset(&m_waveFormat,0,sizeof(m_waveFormat));
     WAVEFORMATEX& fmt = m_waveFormat.Format;
