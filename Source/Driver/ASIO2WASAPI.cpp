@@ -38,6 +38,7 @@ const IID IID_IAudioClient = __uuidof(IAudioClient);
 const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
 
 const char * szPrefsRegKey = "Software\\VSTi Driver\\Output Driver\\ASIO2WASAPI";
+const char * szPrefsVSTDriverRegKey = "Software\\VSTi Driver";
 
 #define SAFE_RELEASE(punk)  \
               if ((punk) != NULL)  \
@@ -353,21 +354,32 @@ ASIOSampleType ASIO2WASAPI::getASIOSampleType() const
 const char * szChannelRegValName = "Channels";
 const char * szSampRateRegValName = "Sample Rate";
 const char * szBufferSizeRegValName = "Buffer Size";
+const char * szBufferSizeVSTDriverRegValName = "BufferSize";
 const wchar_t * szDeviceId = L"Device Id";
 
 void ASIO2WASAPI::readFromRegistry()
 {
     HKEY key = 0;
-    LONG lResult = RegOpenKeyEx(HKEY_CURRENT_USER, szPrefsRegKey, 0, KEY_READ,&key);
+    LONG lResult = RegOpenKeyEx(HKEY_CURRENT_USER, szPrefsVSTDriverRegKey, 0, KEY_READ, &key);
+    if (ERROR_SUCCESS == lResult)
+    {
+        DWORD size = sizeof(m_nBufferSize);
+        RegGetValue(key, NULL, szBufferSizeVSTDriverRegValName, RRF_RT_REG_DWORD, NULL, &m_nBufferSize, &size);        
+        RegCloseKey(key);
+    }
+
+    lResult = RegOpenKeyEx(HKEY_CURRENT_USER, szPrefsRegKey, 0, KEY_READ,&key);
     if (ERROR_SUCCESS == lResult)
     {
         DWORD size = sizeof (m_nChannels);
         RegGetValue(key,NULL,szChannelRegValName,RRF_RT_REG_DWORD,NULL,&m_nChannels,&size);
         size = sizeof (m_nSampleRate);
         RegGetValue(key,NULL,szSampRateRegValName,RRF_RT_REG_DWORD,NULL,&m_nSampleRate,&size);
-        size = sizeof(m_nBufferSize);
-        RegGetValue(key, NULL, szBufferSizeRegValName, RRF_RT_REG_DWORD, NULL, &m_nBufferSize, &size);
-        
+        if (m_nBufferSize == 0)
+        {
+            size = sizeof(m_nBufferSize);
+            RegGetValue(key, NULL, szBufferSizeRegValName, RRF_RT_REG_DWORD, NULL, &m_nBufferSize, &size);
+        }
         RegGetValueW(key,NULL,szDeviceId,RRF_RT_REG_SZ,NULL,NULL,&size);
         m_deviceId.resize(size/sizeof(m_deviceId[0]));
         if (size)
@@ -399,7 +411,7 @@ void ASIO2WASAPI::clearState()
     //fields valid before initialization
     m_nChannels = 2;
     m_nSampleRate = 48000;
-    m_nBufferSize = 10;
+    m_nBufferSize = 15;
 
     memset(m_errorMessage,0,sizeof(m_errorMessage));
     m_deviceId.clear();
@@ -467,7 +479,7 @@ BOOL CALLBACK ASIO2WASAPI::ControlPanelProc(HWND hwndDlg,
                     {
                         int nChannels = 2;
                         int nSampleRate = 48000;
-                        int nBufferSize = 20;
+                        int nBufferSize = 15;
                         //get nChannels and nSampleRate from the dialog
                         {
                             BOOL bSuccess = FALSE;
@@ -746,6 +758,7 @@ DWORD WINAPI ASIO2WASAPI::PlayThreadProc(LPVOID pThis)
     HANDLE hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
     CHandleCloser cl(hEvent);
 
+    
     hr = pAudioClient->SetEventHandle(hEvent);
     RETURN_ON_ERROR(hr)
 
@@ -759,7 +772,10 @@ DWORD WINAPI ASIO2WASAPI::PlayThreadProc(LPVOID pThis)
     // Ask MMCSS to temporarily boost the thread priority
     // to reduce the possibility of glitches while we play.
     DWORD taskIndex = 0;
-    AvSetMmThreadCharacteristics(TEXT("Pro Audio"), &taskIndex);
+    HANDLE hAv = AvSetMmThreadCharacteristics(TEXT("Audio"), &taskIndex);
+    if (hAv) AvSetMmThreadPriority(hAv, AVRT_PRIORITY_CRITICAL);
+
+    //SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 
     // Pre-load the first buffer with data
     // from the audio source before starting the stream.
@@ -884,7 +900,7 @@ void ASIO2WASAPI::setMostReliableFormat()
 {
     m_nChannels = 2;
     m_nSampleRate = 48000;
-    m_nBufferSize = 10;
+    m_nBufferSize = 15;
 
     memset(&m_waveFormat,0,sizeof(m_waveFormat));
     WAVEFORMATEX& fmt = m_waveFormat.Format;
