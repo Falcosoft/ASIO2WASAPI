@@ -19,6 +19,7 @@
 */
 
 #pragma once
+#pragma warning(disable : 4996) // disable crt secure warnings
 
 #include <vector>
 using namespace std;

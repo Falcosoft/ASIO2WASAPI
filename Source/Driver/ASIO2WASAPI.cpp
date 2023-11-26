@@ -212,7 +212,7 @@ BOOL IsFormatSupported (IMMDevice* pDevice, WORD nChannels, DWORD nSampleRate, A
         bit <<= 1;
     }
 
-    WAVEFORMATEXTENSIBLE waveFormat;
+    WAVEFORMATEXTENSIBLE waveFormat = {0};
     //try 32-bit first
     waveFormat.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
     waveFormat.Format.nChannels = nChannels;
@@ -284,7 +284,7 @@ IAudioClient * getAudioClient(IMMDevice * pDevice, WAVEFORMATEX * pWaveFormat, i
     if (FAILED(hr))
         return NULL;
 
-    hnsDefaultDuration = max(hnsDefaultDuration, bufferSize * 10000); 
+    hnsDefaultDuration = max(hnsDefaultDuration, (REFERENCE_TIME)bufferSize * 10000);
 
     hr = pAudioClient->Initialize(
                          AUDCLNT_SHAREMODE_EXCLUSIVE,
@@ -339,7 +339,7 @@ BOOL FindStreamFormat(IMMDevice * pDevice, int nChannels,int nSampleRate, int nb
         bit <<= 1;
     }
 
-   WAVEFORMATEXTENSIBLE waveFormat;
+   WAVEFORMATEXTENSIBLE waveFormat = {0};
     //try 32-bit first
    waveFormat.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
    waveFormat.Format.nChannels = nChannels;
@@ -654,7 +654,7 @@ BOOL CALLBACK ASIO2WASAPI::ControlPanelProc(HWND hwndDlg,
                     else
                         SendDlgItemMessage(hwndDlg, IDC_CHANNELS, CB_SETCURSEL, 0, 0);
 
-                    for (UINT i = 0; i < sampleRatesLength; i++)
+                    for (int i = 0; i < sampleRatesLength; i++)
                     {
                         if (IsFormatSupported(pDevice, 2, _wtoi(sampleRates[i]), AUDCLNT_SHAREMODE_EXCLUSIVE))
                         {
@@ -823,6 +823,12 @@ BOOL CALLBACK ASIO2WASAPI::ControlPanelProc(HWND hwndDlg,
             if (!pDriver)
                 return FALSE;
 
+#ifdef _WIN64           
+            SetWindowText(hwndDlg, "VST Driver - ASIO2WASAPI x64");
+#else	
+            SetWindowText(hwndDlg, "VST Driver - ASIO2WASAPI x86");
+#endif	
+
             HWND hwndOwner = 0;
             RECT rcOwner, rcDlg, rc;
 
@@ -949,7 +955,7 @@ BOOL CALLBACK ASIO2WASAPI::ControlPanelProc(HWND hwndDlg,
             else
                 SendDlgItemMessage(hwndDlg, IDC_CHANNELS, CB_SETCURSEL, 0, 0);
 
-            for (UINT i = 0; i < sampleRatesLength; i++)
+            for (int i = 0; i < sampleRatesLength; i++)
             {
                 if (IsFormatSupported(pDriver->m_pDevice, pDriver->m_nChannels, _wtoi(sampleRates[i]), AUDCLNT_SHAREMODE_EXCLUSIVE))
                 {
