@@ -5,6 +5,11 @@ gpl.txt - GNU Public License
 Change log:
 
 Falcosoft:
+Version 1.2
+
+1. Added support for WASAPI shared mode
+2. Modified versioning so all projects get the version info from driver's version.h
+
 Version 1.1
 
 1.Fixed supported format query.
