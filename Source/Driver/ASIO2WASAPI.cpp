@@ -26,6 +26,7 @@
 #include <Mmdeviceapi.h>
 #include <Audioclient.h>
 #include <versionhelpers.h>
+#include <process.h>
 #include "Avrt.h" //used for AvSetMmThreadCharacteristics
 #include <Functiondiscoverykeys_devpkey.h>
 #include "ASIO2WASAPI.h"
@@ -1295,9 +1296,9 @@ BOOL CALLBACK ASIO2WASAPI::ControlPanelProc(HWND hwndDlg,
 } 
 
 #define RETURN_ON_ERROR(hres)  \
-              if (FAILED(hres)) return -1;
+              if (FAILED(hres)) return;
 
-DWORD WINAPI ASIO2WASAPI::PlayThreadProcShared(LPVOID pThis)
+void ASIO2WASAPI::PlayThreadProcShared(LPVOID pThis)
 {
     ASIO2WASAPI* pDriver = static_cast<ASIO2WASAPI*>(pThis);
     struct CExitEventSetter
@@ -1347,19 +1348,25 @@ DWORD WINAPI ASIO2WASAPI::PlayThreadProcShared(LPVOID pThis)
     
     //SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 
-    // Pre-load the first buffer with data
-    // from the audio source before starting the stream.
+    // Pre-load the first buffer with data    
    
     UINT32 bufferFrameCount;
     hr = pAudioClient->GetBufferSize(&bufferFrameCount);
-    RETURN_ON_ERROR(hr)  
-    hr = pRenderClient->GetBuffer(bufferFrameCount, &pData);
-    RETURN_ON_ERROR(hr)   
-    //memset(pData, 0, bufferFrameCount * pDriver->m_waveFormat.Format.nBlockAlign);
-    hr = pRenderClient->ReleaseBuffer(bufferFrameCount, AUDCLNT_BUFFERFLAGS_SILENT);
     RETURN_ON_ERROR(hr)
 
-        hr = pAudioClient->Start();  // Start playing.
+    UINT32 startFrames;
+    if (bufferFrameCount > (4 * pDriver->m_bufferSize))
+        startFrames = bufferFrameCount;
+    else
+        startFrames = pDriver->m_bufferSize;
+
+    hr = pRenderClient->GetBuffer(startFrames, &pData);
+    RETURN_ON_ERROR(hr)
+    //memset(pData, 0, bufferFrameCount * pDriver->m_waveFormat.Format.nBlockAlign);
+    hr = pRenderClient->ReleaseBuffer(startFrames, AUDCLNT_BUFFERFLAGS_SILENT);
+    RETURN_ON_ERROR(hr)
+    
+    hr = pAudioClient->Start();  // Start playing.
     RETURN_ON_ERROR(hr)
 
     getNanoSeconds(&pDriver->m_theSystemTime);
@@ -1401,11 +1408,11 @@ DWORD WINAPI ASIO2WASAPI::PlayThreadProcShared(LPVOID pThis)
     RETURN_ON_ERROR(hr)
         pDriver->m_samplePosition = 0;
 
-    return 0;
+    return;
 }
 
 
-DWORD WINAPI ASIO2WASAPI::PlayThreadProc(LPVOID pThis) 
+void ASIO2WASAPI::PlayThreadProc(LPVOID pThis)
 {
     ASIO2WASAPI * pDriver = static_cast<ASIO2WASAPI *>(pThis);
     struct CExitEventSetter
@@ -1455,15 +1462,7 @@ DWORD WINAPI ASIO2WASAPI::PlayThreadProc(LPVOID pThis)
 
     // Pre-load the first buffer with data
     // from the audio source before starting the stream.
-    //hr = pDriver->LoadData(pRenderClient);
-
-    UINT32 bufferFrameCount;
-    hr = pAudioClient->GetBufferSize(&bufferFrameCount);
-    RETURN_ON_ERROR(hr)
-    hr = pRenderClient->GetBuffer(bufferFrameCount, &pData);
-    RETURN_ON_ERROR(hr) 
-    hr = pRenderClient->ReleaseBuffer(bufferFrameCount, AUDCLNT_BUFFERFLAGS_SILENT);
-    RETURN_ON_ERROR(hr)   
+    //hr = pDriver->LoadData(pRenderClient);  //this actually adds unnecessary latency of the length of 1 buffer.   
   
     hr = pAudioClient->Start();  // Start playing.
     RETURN_ON_ERROR(hr)
@@ -1534,7 +1533,7 @@ DWORD WINAPI ASIO2WASAPI::PlayThreadProc(LPVOID pThis)
     RETURN_ON_ERROR(hr)
     pDriver->m_samplePosition = 0;    
 
-    return 0;
+    return;
 }
 
 #undef RETURN_ON_ERROR
@@ -1951,7 +1950,35 @@ ASIOError ASIO2WASAPI::getChannelInfo (ASIOChannelInfo *info)
 
     if (info->channel < sizeof(knownChannelNames) / sizeof(knownChannelNames[0]))
     {
-        strcpy_s(info->name, sizeof(info->name), knownChannelNames[info->channel]);
+        if(m_waveFormat.dwChannelMask == KSAUDIO_SPEAKER_QUAD) 
+        {
+            switch (info->channel)
+            {            
+                case 2: strcpy_s(info->name, sizeof(info->name), knownChannelNames[4]); break;
+                case 3: strcpy_s(info->name, sizeof(info->name), knownChannelNames[5]); break;
+                default: strcpy_s(info->name, sizeof(info->name), knownChannelNames[info->channel]); break;
+            }
+        }
+        else if (m_waveFormat.dwChannelMask == KSAUDIO_SPEAKER_5POINT1_SURROUND) 
+        {
+            switch (info->channel)
+            {
+            case 4: strcpy_s(info->name, sizeof(info->name), knownChannelNames[9]); break;
+            case 5: strcpy_s(info->name, sizeof(info->name), knownChannelNames[10]); break;
+            default: strcpy_s(info->name, sizeof(info->name), knownChannelNames[info->channel]); break;
+            }
+        }        
+        else if (m_waveFormat.dwChannelMask == KSAUDIO_SPEAKER_7POINT1_SURROUND) 
+        {
+            switch (info->channel)
+            {                
+                case 6: strcpy_s(info->name, sizeof(info->name), knownChannelNames[9]); break;
+                case 7: strcpy_s(info->name, sizeof(info->name), knownChannelNames[10]); break;
+                default: strcpy_s(info->name, sizeof(info->name), knownChannelNames[info->channel]); break;
+            }
+        }
+        else
+            strcpy_s(info->name, sizeof(info->name), knownChannelNames[info->channel]);
     }
     else
     {
@@ -1984,9 +2011,9 @@ ASIOError ASIO2WASAPI::start()
     
     m_hStopPlayThreadEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
     if (m_wasapiExclusiveMode)
-        CreateThread(NULL,0,PlayThreadProc,this,0,NULL);
+        _beginthread(PlayThreadProc, 16384, this); //Prevents thread leaks caused by CreateThread and static crt
     else
-        CreateThread(NULL, 0, PlayThreadProcShared, this, 0, NULL);
+        _beginthread(PlayThreadProcShared, 16384, this); //Prevents thread leaks caused by CreateThread and static crt
 
 
     return ASE_OK;
@@ -2050,14 +2077,27 @@ ASIOError ASIO2WASAPI::getSamplePosition (ASIOSamples *sPos, ASIOTimeStamp *tSta
     return ASE_OK;
 }
 
-ASIOError ASIO2WASAPI::getLatencies (long *_inputLatency, long *_outputLatency)
+ASIOError ASIO2WASAPI::getLatencies(long* _inputLatency, long* _outputLatency)
 {
     if (!m_active || !m_callbacks)
         return ASE_NotPresent;
     if (_inputLatency)
         *_inputLatency = m_bufferSize;
     if (_outputLatency)
-        *_outputLatency = 2 * m_bufferSize;
+    {
+        UINT32 latency = 0;
+        HRESULT hr = E_FAIL;
+        if (m_pAudioClient) hr = m_pAudioClient->GetBufferSize(&latency);
+        if (SUCCEEDED(hr))
+        {
+            if (m_wasapiExclusiveMode)
+                *_outputLatency = 2 * latency;
+            else
+                *_outputLatency = latency + m_bufferSize;
+        }
+        else
+            *_outputLatency = 2 * m_bufferSize; 
+    }
     return ASE_OK;
 }
 
