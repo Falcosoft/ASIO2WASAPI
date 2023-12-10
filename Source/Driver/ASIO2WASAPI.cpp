@@ -1776,6 +1776,9 @@ ASIOBool ASIO2WASAPI::init(void* sysRef)
         }
     }
 
+    if (!m_pAudioClient)
+        return false; 
+
     if (m_wasapiExclusiveMode)
     {
         UINT32 bufferSize = 0;
