@@ -372,7 +372,7 @@ IAudioClient * getAudioClient(IMMDevice * pDevice, WAVEFORMATEX * pWaveFormat, i
     {
         IAudioClient3* pAudioClient3 = NULL;
         hr = pAudioClient->QueryInterface(&pAudioClient3);
-        if (FAILED(hr) || !pAudioClient3) return NULL;
+        if (FAILED(hr) || !pAudioClient3) return NULL;        
         
         CReleaser ra3(pAudioClient3);
         UINT32 minPeriod, maxPeriod, fundamentalPeriod, defaultPeriod, currentPeriod;
@@ -380,7 +380,10 @@ IAudioClient * getAudioClient(IMMDevice * pDevice, WAVEFORMATEX * pWaveFormat, i
         hr = pAudioClient3->GetCurrentSharedModeEnginePeriod(&format, &currentPeriod);
         hr = pAudioClient3->GetSharedModeEnginePeriod(format, &defaultPeriod, &fundamentalPeriod, &minPeriod, &maxPeriod);
         if (FAILED(hr)) return NULL;
-        while (minPeriod < (UINT32)(defaultPeriod * 0.4)) minPeriod += fundamentalPeriod; //4 ms update period seems to be a good compromise between latency and stability 
+
+        UINT32 buffsizeInSamples = (UINT32)(bufferSize * (format->nSamplesPerSec * 0.001));
+        while (minPeriod < (UINT32)(buffsizeInSamples * 0.44)) minPeriod += fundamentalPeriod; //derive update period from given buffer size (that cannot be set directly in low latency mode, but it seems to be 2.2 * update period)
+        if (minPeriod > maxPeriod) minPeriod = maxPeriod;
         hr = pAudioClient3->InitializeSharedAudioStream(AUDCLNT_STREAMFLAGS_EVENTCALLBACK, minPeriod, format, NULL);
         if (hr == AUDCLNT_E_ENGINE_PERIODICITY_LOCKED)
             hr = pAudioClient3->InitializeSharedAudioStream(AUDCLNT_STREAMFLAGS_EVENTCALLBACK, currentPeriod, format, NULL);
