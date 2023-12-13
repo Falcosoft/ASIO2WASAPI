@@ -540,7 +540,8 @@ BOOL FindStreamFormat(IMMDevice * pDevice, int nChannels,int nSampleRate, int& n
    waveFormat.Format.nAvgBytesPerSec = waveFormat.Format.nSamplesPerSec * waveFormat.Format.nBlockAlign;
    waveFormat.Samples.wValidBitsPerSample=waveFormat.Format.wBitsPerSample;
    
-   pAudioClient = getAudioClient(pDevice,(WAVEFORMATEX*)&waveFormat, nbufferSize, shareMode, doResampling, doLowLatency);
+   pAudioClient = getAudioClient(pDevice,(WAVEFORMATEX*)&waveFormat, nbufferSize, shareMode, doResampling, doLowLatency);   
+    
 
 Finish:
    BOOL bSuccess = (pAudioClient != NULL);
@@ -727,12 +728,15 @@ void ASIO2WASAPI::shutdown()
     IMMDeviceEnumerator* pEnumerator = NULL;    
     HRESULT hr = S_OK;
     
-    stop();
+    //stop(); Redundant. disposeuffers calls stop().
 	disposeBuffers();
    
-    HANDLE hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
-    CHandleCloser cl(hEvent);
-    if(m_pAudioClient) m_pAudioClient->SetEventHandle(hEvent); //Without this you have to wait long seconds in Win7...
+    if (!m_hCallbackEvent)
+    {
+        HANDLE hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+        CHandleCloser cl(hEvent);
+        if (m_pAudioClient) m_pAudioClient->SetEventHandle(hEvent); //Without this you have to wait long seconds in Win7...
+    }
     SAFE_RELEASE(m_pAudioClient)
     
     SAFE_RELEASE(m_pDevice)
@@ -751,6 +755,12 @@ void ASIO2WASAPI::shutdown()
         pEnumerator->UnregisterEndpointNotificationCallback(pNotificationClient);
         delete(pNotificationClient);
         pNotificationClient = NULL;
+    }
+
+    if (m_hCallbackEvent)
+    {
+        CloseHandle(m_hCallbackEvent);
+        m_hCallbackEvent = NULL;
     }
    
 }
@@ -1177,8 +1187,8 @@ BOOL CALLBACK ASIO2WASAPI::ControlPanelProc(HWND hwndDlg,
 
             SetWindowPos(hwndDlg,
                 HWND_TOPMOST,
-                rcOwner.left + (rc.right / 2),
-                rcOwner.top + (rc.bottom / 2),
+                max(0, rcOwner.left + (rc.right / 2)),
+                max(0, rcOwner.top + (rc.bottom / 2)),
                 0, 0,
                 SWP_NOSIZE);
 
@@ -1331,21 +1341,20 @@ void ASIO2WASAPI::PlayThreadProcShared(LPVOID pThis)
 
     hr = CoInitialize(NULL);
     RETURN_ON_ERROR(hr)
+    
+    if (!pDriver->m_hCallbackEvent)
+    {
+         pDriver->m_hCallbackEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+         hr = pAudioClient->SetEventHandle(pDriver->m_hCallbackEvent);
+         RETURN_ON_ERROR(hr)
+    }   
+    else
+        ResetEvent(pDriver->m_hCallbackEvent); //make sure event is not signaled when AudioClient start is called
 
-        // Create an event handle and register it for
-        // buffer-event notifications.
-        HANDLE hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
-    CHandleCloser cl(hEvent);
+    hr = pAudioClient->GetService(IID_IAudioRenderClient, (void**)&pRenderClient);
 
-    hr = pAudioClient->SetEventHandle(hEvent);
     RETURN_ON_ERROR(hr)
-
-        hr = pAudioClient->GetService(
-            IID_IAudioRenderClient,
-            (void**)&pRenderClient);
-
-    RETURN_ON_ERROR(hr)
-        CReleaser r(pRenderClient);
+    CReleaser r(pRenderClient);
 
     // Ask MMCSS to temporarily boost the thread priority
     // to reduce the possibility of glitches while we play.
@@ -1358,7 +1367,9 @@ void ASIO2WASAPI::PlayThreadProcShared(LPVOID pThis)
     // Pre-load the first buffer with data    
    
     UINT32 bufferFrameCount;
+    UINT32 numFramesPadding;
     hr = pAudioClient->GetBufferSize(&bufferFrameCount);
+    hr = pAudioClient->GetCurrentPadding(&numFramesPadding);
     RETURN_ON_ERROR(hr)
 
     UINT32 startFrames;
@@ -1366,6 +1377,8 @@ void ASIO2WASAPI::PlayThreadProcShared(LPVOID pThis)
         startFrames = bufferFrameCount - pDriver->m_bufferSize;
     else
         startFrames = pDriver->m_bufferSize;
+
+    if (startFrames > (bufferFrameCount - numFramesPadding)) startFrames = bufferFrameCount - numFramesPadding;
 
     hr = pRenderClient->GetBuffer(startFrames, &pData);
     RETURN_ON_ERROR(hr)
@@ -1385,7 +1398,7 @@ void ASIO2WASAPI::PlayThreadProcShared(LPVOID pThis)
     //char convTxt[11] = { 0 };
 
     DWORD retval = 0;
-    HANDLE events[2] = { pDriver->m_hStopPlayThreadEvent, hEvent };
+    HANDLE events[2] = { pDriver->m_hStopPlayThreadEvent, pDriver->m_hCallbackEvent };
     while ((retval = WaitForMultipleObjects(2, events, FALSE, INFINITE)) == (WAIT_OBJECT_0 + 1))
     {//the hEvent is signalled and m_hStopPlayThreadEvent is not
         // Grab the next empty buffer from the audio device.    
@@ -1446,17 +1459,16 @@ void ASIO2WASAPI::PlayThreadProc(LPVOID pThis)
     hr = CoInitialize(NULL);
     RETURN_ON_ERROR(hr)
 
-    // Create an event handle and register it for
-    // buffer-event notifications.
-    HANDLE hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
-    CHandleCloser cl(hEvent);
+    if (!pDriver->m_hCallbackEvent)
+    {
+         pDriver->m_hCallbackEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+         hr = pAudioClient->SetEventHandle(pDriver->m_hCallbackEvent);
+         RETURN_ON_ERROR(hr)
+    }
+    else
+        ResetEvent(pDriver->m_hCallbackEvent); //make sure event is not signaled when AudioClient start is called
 
-    hr = pAudioClient->SetEventHandle(hEvent);
-    RETURN_ON_ERROR(hr)
-
-    hr = pAudioClient->GetService(
-                         IID_IAudioRenderClient,
-                         (void**)&pRenderClient);
+    hr = pAudioClient->GetService(IID_IAudioRenderClient, (void**)&pRenderClient);
 
     RETURN_ON_ERROR(hr)
     CReleaser r(pRenderClient);
@@ -1496,7 +1508,7 @@ void ASIO2WASAPI::PlayThreadProc(LPVOID pThis)
     //char convTxt[11] = { 0 };
     
     DWORD retval = 0;
-    HANDLE events[2] = {pDriver->m_hStopPlayThreadEvent, hEvent };
+    HANDLE events[2] = {pDriver->m_hStopPlayThreadEvent, pDriver->m_hCallbackEvent };
     while ((retval  = WaitForMultipleObjects(2,events,FALSE, INFINITE)) == (WAIT_OBJECT_0 + 1))
     {//the hEvent is signalled and m_hStopPlayThreadEvent is not
         // Grab the next empty buffer from the audio device.
@@ -1660,6 +1672,7 @@ ASIOBool ASIO2WASAPI::init(void* sysRef)
     m_hAppWindowHandle = (HWND) sysRef;
     m_hControlPanelHandle = 0;
     pNotificationClient = NULL;
+    m_hCallbackEvent = NULL;
 
     HRESULT hr=S_OK;
     IMMDeviceEnumerator *pEnumerator = NULL;
@@ -1721,26 +1734,22 @@ ASIOBool ASIO2WASAPI::init(void* sysRef)
 
     BOOL rc = FindStreamFormat(m_pDevice, m_nChannels,m_nSampleRate, m_nBufferSize, m_wasapiExclusiveMode, m_wasapiEnableResampling, m_wasapiLowLatencySharedMode, &m_waveFormat,&m_pAudioClient);
     if (!rc)
-    {
-        if (!m_wasapiExclusiveMode && !m_wasapiEnableResampling)
-        {
-            IAudioClient* pAudioClient = NULL;
-            hr = m_pDevice->Activate(
-                IID_IAudioClient, CLSCTX_ALL,
-                NULL, (void**)&pAudioClient);
-            CReleaser r(pAudioClient);
-                  
-            WAVEFORMATEX* devFormat;
-            hr = pAudioClient->GetMixFormat(&devFormat);
-            if (SUCCEEDED(hr))
-            {
-                m_nChannels = devFormat->nChannels;
-                m_nSampleRate = devFormat->nSamplesPerSec;
-                CoTaskMemFree(devFormat);
-            }           
-            FindStreamFormat(m_pDevice, m_nChannels, m_nSampleRate, m_nBufferSize, m_wasapiExclusiveMode, m_wasapiEnableResampling, m_wasapiLowLatencySharedMode, &m_waveFormat, &m_pAudioClient);
-        }
-        else
+    {     
+  		IAudioClient* pAudioClient = NULL;
+		hr = m_pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, NULL, (void**)&pAudioClient);
+		CReleaser r(pAudioClient);
+
+		WAVEFORMATEX* devFormat;
+		hr = pAudioClient->GetMixFormat(&devFormat);
+		if (SUCCEEDED(hr))
+		{
+			m_nChannels = !m_wasapiExclusiveMode ? devFormat->nChannels : 2;
+			m_nSampleRate = devFormat->nSamplesPerSec;
+			CoTaskMemFree(devFormat);
+            rc = FindStreamFormat(m_pDevice, m_nChannels, m_nSampleRate, m_nBufferSize, m_wasapiExclusiveMode, m_wasapiEnableResampling, m_wasapiLowLatencySharedMode, &m_waveFormat, &m_pAudioClient);
+		}
+
+        if (!rc)
         {//go through all devices and try to find the one that works for 16/48K
             SAFE_RELEASE(m_pDevice)
                 setMostReliableFormat();
