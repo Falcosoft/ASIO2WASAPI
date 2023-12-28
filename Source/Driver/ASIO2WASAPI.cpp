@@ -1201,7 +1201,7 @@ BOOL CALLBACK ASIO2WASAPI::ControlPanelProc(HWND hwndDlg,
 
             IMMDeviceEnumerator *pEnumerator = NULL;
             DWORD flags = 0;
-            std::ignore = CoInitialize(NULL);
+            (void) CoInitialize(NULL);
 
             HRESULT hr = CoCreateInstance(
                    CLSID_MMDeviceEnumerator, NULL,
@@ -1678,7 +1678,7 @@ ASIOBool ASIO2WASAPI::init(void* sysRef)
     IMMDeviceEnumerator *pEnumerator = NULL;
     DWORD flags = 0;
 
-    std::ignore = CoInitialize(NULL); 
+    (void) CoInitialize(NULL);
 
     hr = CoCreateInstance(
            CLSID_MMDeviceEnumerator, NULL,
