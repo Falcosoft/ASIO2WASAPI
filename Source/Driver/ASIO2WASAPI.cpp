@@ -1360,9 +1360,13 @@ void ASIO2WASAPI::PlayThreadProcShared(LPVOID pThis)
     // to reduce the possibility of glitches while we play.
     DWORD taskIndex = 0;
     HANDLE hAv = AvSetMmThreadCharacteristics(TEXT("Pro Audio"), &taskIndex);
-    if (hAv) AvSetMmThreadPriority(hAv, AVRT_PRIORITY_CRITICAL);
-    
-    //SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+        
+    BOOL result = FALSE;
+    if (hAv)
+        result = AvSetMmThreadPriority(hAv, AVRT_PRIORITY_CRITICAL);
+
+    if (!result)
+        SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL); //fail save high priority.
 
     // Pre-load the first buffer with data    
    
