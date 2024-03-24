@@ -31,6 +31,7 @@
 #include <Functiondiscoverykeys_devpkey.h>
 #include "ASIO2WASAPI.h"
 #include "resource.h"
+#include "version.h"
 
 extern HINSTANCE g_hinstDLL;
 
@@ -44,57 +45,28 @@ const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
 const char* szPrefsRegKey = "Software\\VSTi Driver\\Output Driver\\ASIO2WASAPI";
 const char* szPrefsVSTDriverRegKey = "Software\\VSTi Driver";
 
-#pragma comment(lib,"Version.lib") 
-wchar_t* GetFileVersion(wchar_t* result)
+wchar_t* GetFileVersion(wchar_t* result, unsigned int buffSize)
 {
-    DWORD               dwSize = 0;
-    BYTE* pVersionInfo = NULL;
-    VS_FIXEDFILEINFO* pFileInfo = NULL;
-    UINT                pLenFileInfo = 0;
-    wchar_t tmpBuff[MAX_PATH];    
+    wchar_t tmpBuff[12] = { 0 };
 
-    GetModuleFileNameW(g_hinstDLL, tmpBuff, MAX_PATH);
+    wcscat_s(result, buffSize, L"version: ");
+    _ultow_s(VERSION_MAJOR, tmpBuff, _countof(tmpBuff), 10);
+    wcscat_s(result, buffSize, tmpBuff);
+    wcscat_s(result, buffSize, L".");
+    _ultow_s(VERSION_MINOR, tmpBuff, _countof(tmpBuff), 10);
+    wcscat_s(result, buffSize, tmpBuff);
+    wcscat_s(result, buffSize, L".");
+    _ultow_s(VERSION_PATCH, tmpBuff, _countof(tmpBuff), 10);
+    wcscat_s(result, buffSize, tmpBuff);
 
-    dwSize = GetFileVersionInfoSizeW(tmpBuff, NULL);
-    if (dwSize == 0)
-    {
-        return NULL;
-    }
-
-    pVersionInfo = new BYTE[dwSize];
-
-    if (!GetFileVersionInfoW(tmpBuff, 0, dwSize, pVersionInfo))
-    {
-        delete[] pVersionInfo;
-        return NULL;
-    }
-
-    if (!VerQueryValue(pVersionInfo, TEXT("\\"), (LPVOID*)&pFileInfo, &pLenFileInfo))
-    {
-        delete[] pVersionInfo;
-        return NULL;
-    }
-
-    lstrcatW(result, L"version: ");
-    _ultow_s((pFileInfo->dwFileVersionMS >> 16) & 0xffff, tmpBuff, MAX_PATH, 10);
-    lstrcatW(result, tmpBuff);
-    lstrcatW(result, L".");
-    _ultow_s((pFileInfo->dwFileVersionMS) & 0xffff, tmpBuff, MAX_PATH, 10);
-    lstrcatW(result, tmpBuff);
-    lstrcatW(result, L".");
-    _ultow_s((pFileInfo->dwFileVersionLS >> 16) & 0xffff, tmpBuff, MAX_PATH, 10);
-    lstrcatW(result, tmpBuff);
-    //lstrcatW(result, L".");
-    //lstrcatW(result, _ultow((pFileInfo->dwFileVersionLS) & 0xffff, tmpBuff, 10));
-
-    return result;
+    return result;    
 }
 
 class CReleaser 
 {
     IUnknown * m_pUnknown;
 public:
-    CReleaser(IUnknown * pUnk) : m_pUnknown(pUnk) {}
+    explicit CReleaser(IUnknown * pUnk) : m_pUnknown(pUnk) {}
     void deactivate() {m_pUnknown = NULL;}
     void reset(IUnknown * pUnk) 
     {
@@ -111,7 +83,7 @@ class CHandleCloser
 {
     HANDLE m_h;
 public:
-    CHandleCloser(HANDLE h) : m_h(h) {}
+    explicit CHandleCloser(HANDLE h) : m_h(h) {}
     ~CHandleCloser() 
     {
         if (m_h != NULL)
@@ -378,6 +350,7 @@ IAudioClient * getAudioClient(IMMDevice * pDevice, WAVEFORMATEX * pWaveFormat, i
         UINT32 minPeriod, maxPeriod, fundamentalPeriod, defaultPeriod, currentPeriod;
         WAVEFORMATEX* format = NULL;
         hr = pAudioClient3->GetCurrentSharedModeEnginePeriod(&format, &currentPeriod);
+        if (FAILED(hr)) return NULL;
         hr = pAudioClient3->GetSharedModeEnginePeriod(format, &defaultPeriod, &fundamentalPeriod, &minPeriod, &maxPeriod);
         if (FAILED(hr)) return NULL;
 
@@ -1100,7 +1073,7 @@ BOOL CALLBACK ASIO2WASAPI::ControlPanelProc(HWND hwndDlg,
                         {
                             ASIOCallbacks * m_pCallbacks;
                         public:
-                            CCallbackCaller(ASIOCallbacks * pCallbacks) : m_pCallbacks(pCallbacks) {}
+                            explicit CCallbackCaller(ASIOCallbacks * pCallbacks) : m_pCallbacks(pCallbacks) {}
                             ~CCallbackCaller() 
                             {
                                 if (m_pCallbacks)
@@ -1157,7 +1130,7 @@ BOOL CALLBACK ASIO2WASAPI::ControlPanelProc(HWND hwndDlg,
             break;
         case WM_INITDIALOG: 
             {
-            pDriver = (ASIO2WASAPI*)lParam;
+            pDriver = reinterpret_cast<ASIO2WASAPI*>(lParam);           
             if (!pDriver)
                 return FALSE;
             pDriver->m_hControlPanelHandle = hwndDlg;
@@ -1167,7 +1140,7 @@ BOOL CALLBACK ASIO2WASAPI::ControlPanelProc(HWND hwndDlg,
             SetWindowText(hwndDlg, "VST Driver - ASIO2WASAPI x86");
 #endif
             wchar_t fileversionBuff[32] = { 0 };            ;
-            SetWindowTextW(GetDlgItem(hwndDlg, IDC_VERSIONINFO), GetFileVersion(fileversionBuff));
+            SetWindowTextW(GetDlgItem(hwndDlg, IDC_VERSIONINFO), GetFileVersion(fileversionBuff, _countof(fileversionBuff)));
             
             HWND hwndOwner = 0;
             RECT rcOwner, rcDlg, rc;
@@ -1200,7 +1173,7 @@ BOOL CALLBACK ASIO2WASAPI::ControlPanelProc(HWND hwndDlg,
 
 
             IMMDeviceEnumerator *pEnumerator = NULL;
-            DWORD flags = 0;
+            //DWORD flags = 0;
             (void) CoInitialize(NULL);
 
             HRESULT hr = CoCreateInstance(
@@ -1249,7 +1222,7 @@ BOOL CALLBACK ASIO2WASAPI::ControlPanelProc(HWND hwndDlg,
                 hr = pMMDevice->OpenPropertyStore(STGM_READ, &pPropertyStore);
                 if (FAILED(hr)) 
                     return false;
-                CReleaser r2(pPropertyStore);
+                CReleaser rr(pPropertyStore);
                 PROPVARIANT var; PropVariantInit(&var);
                 hr = pPropertyStore->GetValue(PKEY_Device_FriendlyName,&var);
                 if (FAILED(hr))
@@ -1318,13 +1291,18 @@ BOOL CALLBACK ASIO2WASAPI::ControlPanelProc(HWND hwndDlg,
 void ASIO2WASAPI::PlayThreadProcShared(LPVOID pThis)
 {
     ASIO2WASAPI* pDriver = static_cast<ASIO2WASAPI*>(pThis);
-    struct CExitEventSetter
+    class CExitEventSetter
     {
+    private: 
         HANDLE& m_hEvent;
-        CExitEventSetter(ASIO2WASAPI* pDriver) :m_hEvent(pDriver->m_hPlayThreadIsRunningEvent)
+        CExitEventSetter(const CExitEventSetter& that) = delete;;
+        CExitEventSetter& operator=(const CExitEventSetter& that) = delete;;
+    public:
+        explicit CExitEventSetter(ASIO2WASAPI* pDriver) :m_hEvent(pDriver->m_hPlayThreadIsRunningEvent)
         {
             m_hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
-        }
+        }        
+        
         ~CExitEventSetter()
         {
             SetEvent(m_hEvent);
@@ -1373,6 +1351,7 @@ void ASIO2WASAPI::PlayThreadProcShared(LPVOID pThis)
     UINT32 bufferFrameCount;
     UINT32 numFramesPadding;
     hr = pAudioClient->GetBufferSize(&bufferFrameCount);
+    RETURN_ON_ERROR(hr)
     hr = pAudioClient->GetCurrentPadding(&numFramesPadding);
     RETURN_ON_ERROR(hr)
 
@@ -1405,9 +1384,8 @@ void ASIO2WASAPI::PlayThreadProcShared(LPVOID pThis)
     HANDLE events[2] = { pDriver->m_hStopPlayThreadEvent, pDriver->m_hCallbackEvent };
     while ((retval = WaitForMultipleObjects(2, events, FALSE, INFINITE)) == (WAIT_OBJECT_0 + 1))
     {//the hEvent is signalled and m_hStopPlayThreadEvent is not
-        // Grab the next empty buffer from the audio device.    
-            
-        UINT32 numFramesPadding;
+        // Grab the next empty buffer from the audio device.   
+              
         hr = pAudioClient->GetCurrentPadding(&numFramesPadding);
         if (pDriver->m_bufferSize > (int)(bufferFrameCount - numFramesPadding))
         {           
@@ -1439,12 +1417,16 @@ void ASIO2WASAPI::PlayThreadProcShared(LPVOID pThis)
 void ASIO2WASAPI::PlayThreadProc(LPVOID pThis)
 {
     ASIO2WASAPI * pDriver = static_cast<ASIO2WASAPI *>(pThis);
-    struct CExitEventSetter
+    class CExitEventSetter
     {
+    private:
         HANDLE & m_hEvent;
-        CExitEventSetter(ASIO2WASAPI * pDriver):m_hEvent(pDriver->m_hPlayThreadIsRunningEvent)
+        CExitEventSetter(const CExitEventSetter& that) = delete;;
+        CExitEventSetter& operator=(const CExitEventSetter& that) = delete;;
+    public:
+        explicit CExitEventSetter(ASIO2WASAPI* pDriver) :m_hEvent(pDriver->m_hPlayThreadIsRunningEvent)
         {
-            m_hEvent = CreateEvent(NULL,FALSE,FALSE,NULL);
+            m_hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
         }
         ~CExitEventSetter()
         {
@@ -1505,8 +1487,7 @@ void ASIO2WASAPI::PlayThreadProc(LPVOID pThis)
 
     DWORD normalInterval = ((DWORD)round(pDriver->m_bufferSize / (pDriver->m_nSampleRate * 0.001))) + 1;
     DWORD counter = 0;
-    LARGE_INTEGER startTime = { 0 };
-    DWORD endTime = 0;
+    LARGE_INTEGER startTime = { 0 };   
     double	queryPerformanceUnit = 0.0;
 
     LARGE_INTEGER tmpFreq;
@@ -1527,7 +1508,7 @@ void ASIO2WASAPI::PlayThreadProc(LPVOID pThis)
        //timeGetTime is not reliable on Win11 so we use QPC functions. 
         LARGE_INTEGER tmpCounter = { 0 };
         QueryPerformanceCounter(&tmpCounter);
-        endTime = (DWORD)round((tmpCounter.QuadPart - startTime.QuadPart) * queryPerformanceUnit);
+        DWORD endTime = (DWORD)round((tmpCounter.QuadPart - startTime.QuadPart) * queryPerformanceUnit);
         //OutputDebugString(itoa(endTime, convTxt, 10));
 
         if (endTime > normalInterval)
@@ -1747,6 +1728,7 @@ ASIOBool ASIO2WASAPI::init(void* sysRef)
     {     
   		IAudioClient* pAudioClient = NULL;
 		hr = m_pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, NULL, (void**)&pAudioClient);
+        if (FAILED(hr)) return false;
 		CReleaser r(pAudioClient);
 
 		WAVEFORMATEX* devFormat;
@@ -1764,24 +1746,21 @@ ASIOBool ASIO2WASAPI::init(void* sysRef)
             SAFE_RELEASE(m_pDevice)
                 setMostReliableFormat();
 
-            IMMDeviceCollection* pMMDeviceCollection = NULL;
+            pMMDeviceCollection = NULL;
             hr = pEnumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &pMMDeviceCollection);
-            if (FAILED(hr))
-                return false;
+            if (FAILED(hr)) return false;
             CReleaser r2(pMMDeviceCollection);
 
-            UINT nDevices = 0;
+            nDevices = 0;
             hr = pMMDeviceCollection->GetCount(&nDevices);
-            if (FAILED(hr))
-                return false;
+            if (FAILED(hr)) return false;
 
             for (UINT i = 0; i < nDevices; i++)
             {
                 IMMDevice* pMMDevice = NULL;
                 hr = pMMDeviceCollection->Item(i, &pMMDevice);
-                if (FAILED(hr))
-                    continue;
-                CReleaser r(pMMDevice);
+                if (FAILED(hr)) continue;
+                CReleaser rr(pMMDevice);
                 rc = FindStreamFormat(pMMDevice, m_nChannels, m_nSampleRate, m_nBufferSize, m_wasapiExclusiveMode, m_wasapiEnableResampling, m_wasapiLowLatencySharedMode, &m_waveFormat, &m_pAudioClient);
                 if (rc)
                 {
@@ -1944,7 +1923,7 @@ ASIOError ASIO2WASAPI::disposeBuffers()
 {
 	stop();
 	//wait for the play thread to finish
-    WaitForSingleObject(m_hPlayThreadIsRunningEvent,INFINITE);
+    if(m_hPlayThreadIsRunningEvent) WaitForSingleObject(m_hPlayThreadIsRunningEvent,INFINITE);
     m_callbacks = 0;
     m_buffers[0].clear();
     m_buffers[1].clear();
@@ -2031,7 +2010,7 @@ ASIOError ASIO2WASAPI::start()
     if (m_hStopPlayThreadEvent)
         return ASE_OK;// we are already playing
     //make sure the previous play thread exited
-    WaitForSingleObject(m_hPlayThreadIsRunningEvent,INFINITE);
+    if(m_hPlayThreadIsRunningEvent) WaitForSingleObject(m_hPlayThreadIsRunningEvent,INFINITE);
     
     m_hStopPlayThreadEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
     if (m_wasapiExclusiveMode)

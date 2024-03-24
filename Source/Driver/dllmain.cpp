@@ -51,7 +51,7 @@ private:
 
     static int m_cLocked;
 public:
-    CClassFactory(const CFactoryTemplate *);
+    explicit CClassFactory(const CFactoryTemplate *);
 
     // IUnknown
     STDMETHODIMP QueryInterface(REFIID riid, void ** ppv);

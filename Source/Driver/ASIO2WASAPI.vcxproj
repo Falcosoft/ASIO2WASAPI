@@ -74,12 +74,14 @@
     <IncludePath>$(ProjectDir)\..\ASIOSDK\common;$(IncludePath)</IncludePath>
     <IntDir>$(Configuration)\$(Platform)\</IntDir>
     <OutDir>$(SolutionDir)\..\$(Configuration)\</OutDir>
+    <TargetName>$(ProjectName)_vstdrv</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(ProjectDir)\..\ASIOSDK\common;$(IncludePath)</IncludePath>
     <IntDir>$(Configuration)\$(Platform)\</IntDir>
     <OutDir>$(SolutionDir)..\$(Configuration)\$(Platform)\</OutDir>
+    <TargetName>$(ProjectName)_vstdrv</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -87,6 +89,7 @@
     <IntDir>$(Configuration)\$(Platform)\</IntDir>
     <OutDir>$(SolutionDir)\..\$(Configuration)\</OutDir>
     <GenerateManifest>false</GenerateManifest>
+    <TargetName>$(ProjectName)_vstdrv</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -94,6 +97,7 @@
     <IntDir>$(Configuration)\$(Platform)\</IntDir>
     <OutDir>$(SolutionDir)..\$(Configuration)\$(Platform)\</OutDir>
     <GenerateManifest>false</GenerateManifest>
+    <TargetName>$(ProjectName)_vstdrv</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -113,6 +117,7 @@
       <RegisterOutput>false</RegisterOutput>
       <ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile>
       <ImportLibrary>$(IntDir)$(TargetName).lib</ImportLibrary>
+      <OutputFile>$(OutDir)ASIO2WASAPI_vstdrv.dll</OutputFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -131,6 +136,7 @@
       <RegisterOutput>false</RegisterOutput>
       <ImportLibrary>$(IntDir)$(TargetName).lib</ImportLibrary>
       <ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile>
+      <OutputFile>$(OutDir)ASIO2WASAPI_vstdrv.dll</OutputFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -159,6 +165,7 @@
       <RegisterOutput>false</RegisterOutput>
       <ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile>
       <ImportLibrary>$(IntDir)$(TargetName).lib</ImportLibrary>
+      <OutputFile>$(OutDir)ASIO2WASAPI_vstdrv.dll</OutputFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -186,6 +193,7 @@
       <RegisterOutput>false</RegisterOutput>
       <ImportLibrary>$(IntDir)$(TargetName).lib</ImportLibrary>
       <ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile>
+      <OutputFile>$(OutDir)ASIO2WASAPI_vstdrv.dll</OutputFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

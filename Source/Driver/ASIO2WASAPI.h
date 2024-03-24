@@ -55,7 +55,7 @@ class CMMNotificationClient : public IMMNotificationClient
     ASIO2WASAPI* _asio2Wasapi;
 
 public:
-    CMMNotificationClient(ASIO2WASAPI* asio2Wasapi);
+    explicit CMMNotificationClient(ASIO2WASAPI* asio2Wasapi);
 
     ~CMMNotificationClient();
 
@@ -158,7 +158,7 @@ private:
     HRESULT LoadData(IAudioRenderClient * pRenderClient);    
     long refTimeToBufferSize(REFERENCE_TIME time) const;
     LONGLONG bufferSizeToRefTime(long bufferSize) const;    
-    void writeToRegistry();
+    void writeToRegistry();    
     void readFromRegistry();
     void shutdown();
     ASIOSampleType getASIOSampleType() const;    
