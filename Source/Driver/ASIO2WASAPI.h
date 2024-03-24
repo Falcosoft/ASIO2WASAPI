@@ -55,7 +55,7 @@ class CMMNotificationClient : public IMMNotificationClient
     ASIO2WASAPI* _asio2Wasapi;
 
 public:
-    CMMNotificationClient(ASIO2WASAPI* asio2Wasapi);
+    explicit CMMNotificationClient(ASIO2WASAPI* asio2Wasapi);
 
     ~CMMNotificationClient();
 
