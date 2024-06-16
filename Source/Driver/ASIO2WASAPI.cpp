@@ -47,19 +47,8 @@ const char* szPrefsVSTDriverRegKey = "Software\\VSTi Driver";
 
 wchar_t* GetFileVersion(wchar_t* result, unsigned int buffSize)
 {
-    wchar_t tmpBuff[12] = { 0 };
-
-    wcscat_s(result, buffSize, L"version: ");
-    _ultow_s(VERSION_MAJOR, tmpBuff, _countof(tmpBuff), 10);
-    wcscat_s(result, buffSize, tmpBuff);
-    wcscat_s(result, buffSize, L".");
-    _ultow_s(VERSION_MINOR, tmpBuff, _countof(tmpBuff), 10);
-    wcscat_s(result, buffSize, tmpBuff);
-    wcscat_s(result, buffSize, L".");
-    _ultow_s(VERSION_PATCH, tmpBuff, _countof(tmpBuff), 10);
-    wcscat_s(result, buffSize, tmpBuff);
-
-    return result;    
+    wcscpy_s(result, buffSize, L"version: " stringify(VERSION_MAJOR) L"." stringify(VERSION_MINOR) L"." stringify(VERSION_PATCH));
+    return result;
 }
 
 class CReleaser 
